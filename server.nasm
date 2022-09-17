@@ -1,8 +1,8 @@
-; Target architecture
 DEFAULT REL
 CPU X64
 BITS 64
-; Syscall numbers for Linux x86-64 (call order: rdi, rsi, rdx, r10, r8, r9)
+
+; Syscall numbers for Linux x86-64 (argument order: rdi, rsi, rdx, r10, r8, r9)
 %define sys_write       1 ; int write(unsigned int fd, const char *buf, size_t count);
 %define sys_close       3 ; int close(unsigned int fd);
 %define sys_socket     41 ; int socket(int family, int type, int protocol);
@@ -11,6 +11,7 @@ BITS 64
 %define sys_listen     50 ; int listen(int fd, int backlog);
 %define sys_setsockopt 54 ; int setsockopt(int fd, int level, int optname, char *optval, int optlen);
 %define sys_exit       60 ; int exit(int error_code);
+
 ; Various constants
 %define STDOUT_FILENO   1
 %define AF_INET         2
@@ -26,7 +27,7 @@ so_reuseaddr: dd 1 ; socket options: allow address reuse
 
 sockaddr_in:
  .family:  dw AF_INET    ; IPv4
- .port:    db 0x1f,0x40  ; 8000
+ .port:    db 0x1f,0x40  ; port 8000
  .host:    db 127,0,0,1  ; localhost
  .padding: dq 0          ; 8 bytes padding
  .length   equ $ - sockaddr_in
@@ -71,7 +72,7 @@ _start:
   cmp rax, -4095  ; Check if bind failed
   jae .error
 
-  ; Make socket listen for connections, with a connection backlog
+  ; Make socket listen for connections, and set max queue size for connections
   mov rax, sys_listen
   mov rdi, r12    ; socket file descriptor
   mov rsi, 10     ; max size for connection backlog
@@ -86,16 +87,14 @@ _start:
   mov rdx, listening_msg.length
   syscall
 
-.accept_loop:
+.accept_connection:
   ; Accept/wait for next connection, and store client socket in r13
   mov rax, sys_accept
-  mov rdi, r12    ; socket file descriptor
+  mov rdi, r12  ; socket file descriptor
   mov rsi, 0
   mov rdx, 0
   syscall
-  cmp rax, -4095  ; Check if accept failed
-  jae .error
-  mov r13, rax    ; Store client socket
+  mov r13, rax  ; Store client socket
 
   ; Write to accepted socket
   mov rax, sys_write
@@ -109,7 +108,7 @@ _start:
   mov rdi, r13  ; client socket
   syscall
 
-  jmp .accept_loop
+  jmp .accept_connection
 
 .error:
   mov rdi, rax
