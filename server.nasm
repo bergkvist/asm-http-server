@@ -3,6 +3,7 @@ cpu X64
 bits 64
 ; Syscall numbers for Linux x86-64 (call order: rdi, rsi, rdx, r10, r8, r9)
 %define sys_write       1 ; int write(unsigned int fd, const char *buf, size_t count);
+%define sys_close       3 ; int close(unsigned int fd);
 %define sys_socket     41 ; int socket(int family, int type, int protocol);
 %define sys_accept     43 ; int accept(int fd, struct sockaddr *upeer_sockadd, int *upeer_addrlen);
 %define sys_bind       49 ; int bind(int fd, struct sokaddr *umyaddr, int addrlen);
@@ -94,14 +95,20 @@ _start:
   syscall
   cmp rax, -4095  ; Check if accept failed
   jae .error
+  mov r13, rax    ; client socket
 
-  ; write(accepted_sock, http_msg, http_message.length)
-  mov rdi, rax
+  ; write(accepted_sock, http_msg, http_message.length);
   mov rax, sys_write
+  mov rdi, r13  ; accepted_sock
   mov rsi, http_msg
   mov rdx, http_msg.length
   syscall
-  
+
+  ; close(accepted_sock);
+  mov rax, sys_close
+  mov rdi, r13  ; accepted_sock
+  syscall
+
   jmp .accept_loop
 
 .error:
