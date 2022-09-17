@@ -3,3 +3,6 @@ server: server.o
 
 server.o: server.nasm
 	nasm -felf64 $^
+
+clean:
+	rm -f server server.o
